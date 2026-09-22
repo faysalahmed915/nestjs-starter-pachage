@@ -30,8 +30,9 @@ import { HealthModule } from './core/health/health.module.js';
 
 // Domain Modules
 import { AuthModule } from './modules/auth/auth.module.js';
+// import { AuthGuard } from './modules/auth/auth.guard.js';
+// import { UsersModule } from './modules/users/users.module.js';
 import { AuthGuard } from './modules/auth/auth.guard.js';
-import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
@@ -61,7 +62,7 @@ import { UsersModule } from './modules/users/users.module.js';
 
     // Domain Features
     AuthModule,
-    UsersModule,
+    // UsersModule,
   ],
   controllers: [AppController],
   providers: [
