@@ -7,69 +7,40 @@ import type { PrismaService } from '../../core/database/prisma.service.js';
 import { authConfig } from '../../config/auth.config.js';
 
 export const createBetterAuth = (
-    prisma: PrismaService,
-    config: ConfigType<typeof authConfig>,
+  prisma: PrismaService,
+  config: ConfigType<typeof authConfig>,
 ) => {
-    return betterAuth({
-        // ============================================================
-        // DATABASE
-        // ============================================================
+  return betterAuth({
+    database: prismaAdapter(prisma, {
+      provider: 'postgresql',
+    }),
 
-        // SECURITY / ARCHITECTURE:
-        // Reuse the PrismaService already managed by NestJS.
-        //
-        // We do NOT create another PrismaClient here.
-        database: prismaAdapter(prisma, {
-            provider: 'postgresql',
-        }),
+    secret: config.secret,
+    baseURL: config.url,
+    basePath: config.basePath,
+    trustedOrigins: config.trustedOrigins,
 
-        // ============================================================
-        // CORE AUTH CONFIGURATION
-        // ============================================================
+    emailAndPassword: {
+      enabled: true,
+    },
 
-        // Comes from validated ConfigModule configuration.
-        // No hard-coded secret and no insecure fallback.
-        secret: config.secret,
-
-        // Canonical server URL.
-        baseURL: config.url,
-
-        // SINGLE SOURCE OF TRUTH:
-        // /api/auth
-        basePath: config.basePath,
-
-        // SECURITY:
-        // Explicit list of browser origins that Better Auth trusts.
-        //
-        // No wildcard.
-        trustedOrigins: config.trustedOrigins,
-
-        // ============================================================
-        // EMAIL + PASSWORD AUTHENTICATION
-        // ============================================================
-
-        emailAndPassword: {
-            enabled: true,
+    user: {
+      additionalFields: {
+        role: {
+          type: 'string',
+          required: false,
+          defaultValue: 'user',
+          input: false,
         },
+      },
+    },
 
-        // ============================================================
-        // DATABASE OPTIMIZATION
-        // ============================================================
-
-        advanced: {
-            database: {
-                // Better Auth's Prisma adapter supports joins.
-                // This can reduce database round trips for related queries.
-                joins: true,
-            },
-
-            // IMPORTANT:
-            // We intentionally do NOT disable CSRF or origin checking.
-            //
-            // Better Auth's secure defaults should remain enabled.
-            //
-            // disableCSRFCheck: false,
-            // disableOriginCheck: false,
-        },
-    });
+    advanced: {
+      database: {
+        joins: true,
+      },
+    },
+  });
 };
+
+export type Auth = ReturnType<typeof createBetterAuth>;
