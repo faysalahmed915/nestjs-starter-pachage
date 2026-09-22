@@ -54,12 +54,34 @@ async function run() {
     console.log('\n--- 2. Testing API & Security Headers ---');
     const healthRes = await fetch(`${BASE_URL}/health`);
     const healthData = await healthRes.json();
-    record('securityHeaders', 'Health Check', healthRes.ok, `Status: ${healthRes.status}, data: ${JSON.stringify(healthData)}`);
+    const dbStatus = healthData?.data?.info?.database?.status || healthData?.info?.database?.status;
+    record('securityHeaders', 'Health Readiness Includes Database', dbStatus === 'up', `Database readiness status: ${dbStatus}`);
 
     const headers = healthRes.headers;
     record('securityHeaders', 'X-Content-Type-Options', headers.get('x-content-type-options') === 'nosniff', headers.get('x-content-type-options') || 'Missing');
     record('securityHeaders', 'X-Frame-Options', !!headers.get('x-frame-options'), headers.get('x-frame-options') || 'Missing');
     record('securityHeaders', 'Correlation ID', !!headers.get('x-correlation-id'), headers.get('x-correlation-id') || 'Missing');
+
+    // Test correlation ID sanitization:
+    const maliciousRes = await fetch(`${BASE_URL}/health`, {
+      headers: { 'x-correlation-id': '<script>alert(1)</script>' },
+    });
+    const sanitizedId = maliciousRes.headers.get('x-correlation-id');
+    const isSafeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedId);
+    record('securityHeaders', 'Correlation ID Sanitization (Rejects Injections)', isSafeUuid, `Injected ID rejected, replaced with: ${sanitizedId}`);
+
+    const longIdRes = await fetch(`${BASE_URL}/health`, {
+      headers: { 'x-correlation-id': 'a'.repeat(100) },
+    });
+    const sanitizedLongId = longIdRes.headers.get('x-correlation-id');
+    const isSafeLongUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedLongId);
+    record('securityHeaders', 'Correlation ID Sanitization (Rejects Overlong IDs)', isSafeLongUuid, `Overlong ID rejected, replaced with: ${sanitizedLongId}`);
+
+    const validIdRes = await fetch(`${BASE_URL}/health`, {
+      headers: { 'x-correlation-id': 'valid-trace-id-12345' },
+    });
+    const preservedId = validIdRes.headers.get('x-correlation-id');
+    record('securityHeaders', 'Correlation ID Allows Safe IDs', preservedId === 'valid-trace-id-12345', `Safe ID preserved: ${preservedId}`);
 
     // 3. Better Auth - Registration Flow
     console.log('\n--- 3. Testing Better Auth Registration ---');
@@ -77,8 +99,8 @@ async function run() {
     });
 
     const signUpText = await signUpRes.text();
-    let signUpData;
-    try { signUpData = JSON.parse(signUpText); } catch { signUpData = signUpText; }
+    let _signUpData;
+    try { _signUpData = JSON.parse(signUpText); } catch { _signUpData = signUpText; }
 
     const setCookie = signUpRes.headers.get('set-cookie');
     record('betterAuth', 'User Sign-Up Status', signUpRes.ok, `Status: ${signUpRes.status}`);

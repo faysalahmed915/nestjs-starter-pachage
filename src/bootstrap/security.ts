@@ -32,13 +32,7 @@ export function setupSecurity(app: INestApplication): void {
               styleSrc: ["'self'", "'unsafe-inline'"],
               imgSrc: ["'self'", 'data:', 'https:'],
               scriptSrc: ["'self'"],
-              connectSrc: [
-                "'self'",
-                'https:',
-                'http:',
-                'ws:',
-                'wss:',
-              ],
+              connectSrc: ["'self'", 'https:'],
             },
           }
         : false,

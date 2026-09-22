@@ -6,14 +6,18 @@ import {
   REQUEST_ID_HEADER,
 } from '../constants/security.constants.js';
 
+const SAFE_ID_REGEX = /^[a-zA-Z0-9_-]{1,64}$/;
+
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
-    const existingId =
-      (req.headers[CORRELATION_ID_HEADER] as string) ||
-      (req.headers[REQUEST_ID_HEADER] as string);
+    const rawId =
+      (req.headers[CORRELATION_ID_HEADER] as string | undefined) ||
+      (req.headers[REQUEST_ID_HEADER] as string | undefined);
 
-    const correlationId = existingId || uuidv4();
+    // Validate client-provided ID to prevent CRLF injection, log forgery, or buffer bloat
+    const isValid = typeof rawId === 'string' && SAFE_ID_REGEX.test(rawId.trim());
+    const correlationId = isValid ? rawId.trim() : uuidv4();
 
     // Attach to request object for use across interceptors/filters
     (req as Request & { correlationId: string }).correlationId = correlationId;
